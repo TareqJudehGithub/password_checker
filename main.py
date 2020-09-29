@@ -1,34 +1,53 @@
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+import requests
+import hashlib
+import sys
+import time
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+def request_api_data(query_char):
+    url = "https://api.pwnedpasswords.com/range/" + query_char
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise RuntimeError("Unable to fetch API! with error " + str(response.status_code))
+    return response
 
 
-hello = "0123456789"
-print(hello[:5])
-print(hello[5:])
+def get_password_leaks_count(hashes, hash_to_check):
+    hashes = (line.split(":") for line in hashes.text.splitlines())
+    for h, count in hashes:
+        # if password tail matches:
+        if h == hash_to_check:
+            return count
+    return 0
 
-my_list = [num **2 for num in range(10) if num % 2 != 0]
-print(my_list)
 
-simple_dict = {"a": 1, "b": 2}
-# instantiating a dict out of simple_dict:
+# Hashing passwords:
+def pwned_api_check(password):
+    # Check password if it exists in API response:
+    hashed_password = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
 
-my_dict1 = {k: v ** 2 for k, v in simple_dict.items()}
-print(my_dict1)
+    # Store first 5 char in a var, and store the rest in another var:
+    first5_char, tail = hashed_password[:5], hashed_password[5:]
+    response = request_api_data(first5_char)
+    return get_password_leaks_count(response, tail)
 
-# And adding only even items:
-my_dict2 = {k: v ** 2 for k, v in simple_dict.items() if v % 2 == 0}
-print(my_dict2)
+
+def main(args):
+    for password in args:
+        count = pwned_api_check(password)
+        if count:
+            print(f"{password} was found {count} times. You should probably change your password.")
+        else:
+            print(f"{password} was found {count} times. This is a good password.")
+    time.sleep(1)
+    return "Password check complete!"
+
+
 print("")
 
-# create a dictionary, where values are key * 2
-my_dict3 = {num: num * 2 for num in [1, 2, 3]}
-print(my_dict3)
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:])) 
 
-my_dict4 = {num: item * 2 for num, item in simple_dict.items()}
-print(my_dict4)
+
+# From Terminal, run: $ python3 main.py <your password>
+
